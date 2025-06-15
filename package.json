@@ -1,0 +1,37 @@
+{
+    "name": "signalk-remote-control",
+    "version": "0.0.1",
+    "description": "Remote control, PUT/GET, for SignalK",
+    "main": "index.js",
+    "scripts": {
+        "pretest": "eslint .",
+        "test": "mocha *.js"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git://github.com/KEGustafsson/signalk-remote-control.git"
+    },
+    "keywords": [
+        "signalk-node-server-plugin",
+        "signalk-webapp",
+        "signalk-category-utility"
+    ],
+    "signalk": {
+        "appIcon": "./icons/icon-72x72.png",
+        "displayName": "SignalK Remote Control"
+    },
+    "signalk-plugin-enabled-by-default": false,
+    "author": "Karl-Erik Gustafsson",
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/KEGustafsson/signalk-remote-control/issues"
+    },
+    "homepage": "https://github.com/KEGustafsson/signalk-remote-control#readme",
+    "devDependencies": {
+        "eslint": "^8.14.0",
+        "eslint-config-airbnb-base": "^15.0.0",
+        "eslint-plugin-import": "^2.20.0",
+        "eslint-plugin-mocha": "^10.0.4",
+        "mocha": "^10.2.0"
+    }
+}

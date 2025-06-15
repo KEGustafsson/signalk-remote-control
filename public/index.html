@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Include Bootstrap CSS -->
+    <link rel="stylesheet" href="css/bootstrap.min.css">
+    <style>
+        .title-container img {
+            margin-right: 10px;
+        }
+        .container {
+            min-width: 480px;
+            max-width: 1920px;
+            /* Set the maximum width to 1800 pixels */
+        }
+        .empty-row {
+            height: 20px;
+            /* Adjust the height as needed */
+            background-color: #fff;
+            /* Background color for the empty row */
+        }
+        input[type="number"] {
+            margin-right: 10px;
+        }        
+        .input-group {
+            padding-bottom: 1px;
+        }   
+    </style>
+    <title>Engine Hours Editor</title>
+    <meta name="description" content="A web application for editing engine hours data.">
+    <link rel="icon" type="image/png" href="icons/icon-72x72.png">
+</head>
+
+<body style="background-color: white">
+    <div class="container">
+        <div class="title-container d-flex align-items-center">
+            <img src="icons/icon-72x72.png" alt="Icon">
+            <h1 class="m-0">Engine Hours Editor</h1>
+        </div>
+        <div id="json-container"></div>
+        <br>
+        <button id="reload-button" class="btn btn-primary" aria-label="Reload Data">Reload Data</button>
+        <button id="save-button" class="btn btn-success" disabled aria-label="Save Changes">Save Changes</button>
+    </div>
+
+    <script src="bootstrap/bootstrap.bundle.min.js"></script>
+    <script>
+        const url = window.location.origin + '/plugins/signalk-remote-control/remotes';
+        let jsonData = null;
+
+        // Function to fetch JSON data from the server
+        async function fetchData() {
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                jsonData = await response.json();
+                displayJsonData();
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        // Function to display JSON data and make runTime editable
+        function displayJsonData() {
+            const jsonContainer = document.getElementById('json-container');
+            jsonContainer.innerHTML = '';
+
+            jsonData.paths.forEach((pathData, index) => {
+                const div = document.createElement('div');
+                const matches = pathData.path.match(/[^.]+\.(.+)\.[^.]+/);
+                const engineName = matches ? matches[1] : null;
+                if (index == 0) {
+                    div.innerHTML = `
+                    <br>
+                    <div class="row col" style="min-width: 1000px; max-width: 1200px;">
+                        <div class="input-group col col-md-auto">
+                            <span class="input-group-text col-4" id="inputGroup-sizing-default"><b>Path</b></span>
+                            <span class="input-group-text col-3 d-flex justify-content-center" id="inputGroup-sizing-default"><b>Time [h]</b></span>
+                        </div>
+                        <div class="empty-row"></div>
+                        <div class="input-group col-md-auto">
+                            <label class="input-group-text col-4" for="runTime${index}" aria-label="Run Time for ${engineName}">propulsion.${engineName}.runTime</label>
+                            <input class="input-group-text col-3" type="number" step='1.0' id="runTime${index}" value="${parseFloat(pathData.runTime/3600).toFixed(1)}">
+                        </div>
+                        <div class="input-group col-md-auto">
+                            <label class="input-group-text col-4" for="runTimeTrip${index}" aria-label="Run Time Trip for ${engineName}">propulsion.${engineName}.runTimeTrip</label>
+                            <input class="input-group-text col-3" type="number" step='1.0' id="runTimeTrip${index}" value="${parseFloat(pathData.runTimeTrip/3600).toFixed(1)}">
+                        </div>
+                    </div>                    
+                    <button id="delete-button" class="btn btn-danger" onclick="deleteSection(${index})">Delete</button>
+                `;
+                } else {
+                    div.innerHTML = `
+                    <br>
+                    <div class="row col" style="min-width: 1000px; max-width: 1200px;">
+                        <div class="input-group col-md-auto">
+                            <label class="input-group-text col-4" for="runTime${index}">propulsion.${engineName}.runTime</label>
+                            <input class="input-group-text col-3" type="number" id="runTime${index}" value="${parseFloat(pathData.runTime/3600).toFixed(1)}">
+                        </div>
+                        <div class="input-group col-md-auto">
+                            <label class="input-group-text col-4" for="runTimeTrip${index}">propulsion.${engineName}.runTimeTrip</label>
+                            <input class="input-group-text col-3" type="number" id="runTimeTrip${index}" value="${parseFloat(pathData.runTimeTrip/3600).toFixed(1)}">
+                        </div>
+                    </div>                    
+                    <button id="delete-button" class="btn btn-danger" onclick="deleteSection(${index})">Delete</button>
+                `;
+                }
+                jsonContainer.appendChild(div);
+            });
+
+            checkChanges(); // Enable/disable the Save button after rendering
+        }
+
+        // Function to delete a section from the JSON data
+        function deleteSection(index) {
+            if (jsonData.paths.length > index) {
+                jsonData.paths.splice(index, 1);
+                displayJsonData();
+                enableSaveButton(); // Explicitly enable the Save button
+            }
+        }
+
+        // Function to send edited data back to the server using PUT
+        async function saveChanges() {
+            try {
+                // Update jsonData with modified values from input fields
+                const inputs = document.querySelectorAll('input[type="number"]');
+                for (let i = 0; i < inputs.length; i++) {
+                    const inputValue = parseFloat(inputs[i].value);
+                    if (i % 2 === 0) {
+                        jsonData.paths[Math.floor(i / 2)].runTime = parseInt(inputValue* 3600);
+                    } else {
+                        jsonData.paths[Math.floor(i / 2)].runTimeTrip = parseInt(inputValue * 3600);
+                    }
+                }
+
+                const response = await fetch(url, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(jsonData) // Send the entire edited JSON data
+                });
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                console.log('Data saved successfully.');
+                fetchData(); // Reload data after saving
+            } catch (error) {
+                displayErrorMessage(error.message);
+            }
+        }
+
+        // Function to display error messages to the user
+        function displayErrorMessage(message) {
+            const jsonContainer = document.getElementById('json-container');
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'alert alert-danger';
+            errorDiv.textContent = message;
+            jsonContainer.prepend(errorDiv);
+            setTimeout(() => {
+                errorDiv.remove();
+            }, 5000);
+        }
+
+        // Function to enable the Save button
+        function enableSaveButton() {
+            const saveButton = document.getElementById('save-button');
+            saveButton.disabled = false;
+        }
+
+        // Function to disable the Save button
+        function disableSaveButton() {
+            const saveButton = document.getElementById('save-button');
+            saveButton.disabled = true;
+        }
+
+        // Function to check if any values have changed and enable/disable the Save button accordingly
+        function checkChanges() {
+            const saveButton = document.getElementById('save-button');
+            const inputs = document.querySelectorAll('input[type="number"]');
+            let dataChanged = false;
+
+            for (let i = 0; i < inputs.length; i++) {
+                const inputValue = parseInt(inputs[i].value * 3600);
+                let originalValue;
+                if (i % 2 === 0) {
+                    originalValue = jsonData.paths[Math.floor(i / 2)].runTime;
+                } else {
+                    originalValue = jsonData.paths[Math.floor(i / 2)].runTimeTrip;
+                }
+                if (inputValue !== originalValue) {
+                    dataChanged = true;
+                    break;
+                }
+            }
+
+            saveButton.disabled = !dataChanged;
+        }
+
+        // Event listener for the Reload Data button
+        document.getElementById('reload-button').addEventListener('click', fetchData);
+
+        // Event listener for the Save Changes button
+        document.getElementById('save-button').addEventListener('click', saveChanges);
+
+        // Event listener to track changes in input values
+        document.addEventListener('input', (event) => {
+            const input = event.target;
+            if (input.tagName === 'INPUT' && input.type === 'number') {
+                checkChanges();
+            }
+        });
+
+        // Fetch and display data when the page loads
+        fetchData();
+    </script>
+</body>
+
+</html>
